@@ -1,12 +1,15 @@
 #include <MIDI.h>
 
 // Constants
-#define DEFAULT_TEMPO 120  // Standaard tempo in BPM als het niet verandert
-#define MIDI_TX_PIN D3     // Pin gebruikt voor MIDI TX (uitgang)
-#define LED_PIN D2         // Pin gebruikt voor de knipperende LED
-#define BUTTON_PIN D1      // Pin waar de drukknop is aangesloten
-#define MIN_BPM 50         // Minimale BPM
-#define MAX_BPM 1000       // Maximale BPM
+#define DEFAULT_TEMPO 120   // Standaard tempo in BPM als het niet verandert
+#define MIDI_TX_PIN D3      // Pin gebruikt voor MIDI TX (uitgang)
+#define LED_PIN D2          // Pin gebruikt voor de knipperende LED
+#define BUTTON_PIN D1       // Pin waar de drukknop is aangesloten
+#define PLUS_BUTTON_PIN D5  // Pin voor de plus-knop (BPM verhogen)
+#define MINUS_BUTTON_PIN D6 // Pin voor de min-knop (BPM verlagen)
+#define MIN_BPM 10          // Minimale BPM
+#define MAX_BPM 1000        // Maximale BPM
+#define DEBOUNCE_DELAY 50   // Debounce vertraging in milliseconden
 
 // Variabelen
 volatile bool buttonPressed = false;  // Geeft aan of de knop is ingedrukt
@@ -22,7 +25,7 @@ MIDI_CREATE_DEFAULT_INSTANCE();
 void IRAM_ATTR handleButtonPress() {
   // Debouncing: zorg ervoor dat de knop niet meerdere keren wordt geregistreerd binnen een korte tijd
   unsigned long currentInterruptTime = millis();
-  if (currentInterruptTime - lastInterruptTime > 50) {  // 50 ms debounce
+  if (currentInterruptTime - lastInterruptTime > DEBOUNCE_DELAY) {  // 50 ms debounce
     buttonPressed = true;
     lastInterruptTime = currentInterruptTime;
   }
@@ -94,6 +97,27 @@ void adjustBPM() {
   }
 }
 
+// Functie voor het verwerken van de plus- en min-knop
+void checkFineTuneButtons() {
+  // Controleer of de plusknop is ingedrukt
+  if (digitalRead(PLUS_BUTTON_PIN) == LOW) {
+    delay(DEBOUNCE_DELAY);  // Debounce
+    if (digitalRead(PLUS_BUTTON_PIN) == LOW) {
+      bpm++;  // Verhoog het BPM met 1
+      if (bpm > MAX_BPM) bpm = MAX_BPM;  // Zorg dat het niet boven de MAX_BPM gaat
+    }
+  }
+
+  // Controleer of de min-knop is ingedrukt
+  if (digitalRead(MINUS_BUTTON_PIN) == LOW) {
+    delay(DEBOUNCE_DELAY);  // Debounce
+    if (digitalRead(MINUS_BUTTON_PIN) == LOW) {
+      bpm--;  // Verlaag het BPM met 1
+      if (bpm < MIN_BPM) bpm = MIN_BPM;  // Zorg dat het niet onder de MIN_BPM gaat
+    }
+  }
+}
+
 void setup() {
   // LED pin initialiseren
   pinMode(LED_PIN, OUTPUT);
@@ -101,6 +125,10 @@ void setup() {
 
   // Drukknop initialiseren met interne pull-up weerstand
   pinMode(BUTTON_PIN, INPUT_PULLUP);
+  
+  // Fine-tune knoppen initialiseren
+  pinMode(PLUS_BUTTON_PIN, INPUT_PULLUP);
+  pinMode(MINUS_BUTTON_PIN, INPUT_PULLUP);
 
   // Interrupt instellen voor de knopdruk (falling edge, knop wordt ingedrukt)
   attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), handleButtonPress, FALLING);
@@ -118,4 +146,7 @@ void loop() {
 
   // Controleer of er een knopdruk heeft plaatsgevonden en pas het BPM aan
   adjustBPM();
+  
+  // Controleer of de plus- of min-knop is ingedrukt om het BPM te finetunen
+  checkFineTuneButtons();
 }
