@@ -1,70 +1,121 @@
 #include <MIDI.h>
 
 // Constants
-#define DEFAULT_TEMPO 120  // Default tempo in BPM if not changed
-#define MIDI_TX_PIN D3     // Pin used for MIDI TX
-#define LED_PIN D2         // Pin used for flashing LED
+#define DEFAULT_TEMPO 120  // Standaard tempo in BPM als het niet verandert
+#define MIDI_TX_PIN D3     // Pin gebruikt voor MIDI TX (uitgang)
+#define LED_PIN D2         // Pin gebruikt voor de knipperende LED
+#define BUTTON_PIN D1      // Pin waar de drukknop is aangesloten
+#define MIN_BPM 50         // Minimale BPM
+#define MAX_BPM 1000       // Maximale BPM
 
-// Variables
-unsigned long bpm = DEFAULT_TEMPO;
-bool ledOn = false;  // State of the LED
+// Variabelen
+volatile bool buttonPressed = false;  // Geeft aan of de knop is ingedrukt
+volatile unsigned long lastInterruptTime = 0;  // Tijd van de laatste interrupt om debounce te implementeren
+unsigned long bpm = DEFAULT_TEMPO;    // Huidige BPM
+bool beatInProgress = false;          // Geeft aan of we wachten op de tweede druk
+unsigned long lastBeatTime = 0;       // Tijd van de eerste knopdruk
 
 // MIDI Setup
 MIDI_CREATE_DEFAULT_INSTANCE();
 
-// Send MIDI Clock Command
+// Interrupt service routine (ISR) voor de knopdruk
+void IRAM_ATTR handleButtonPress() {
+  // Debouncing: zorg ervoor dat de knop niet meerdere keren wordt geregistreerd binnen een korte tijd
+  unsigned long currentInterruptTime = millis();
+  if (currentInterruptTime - lastInterruptTime > 50) {  // 50 ms debounce
+    buttonPressed = true;
+    lastInterruptTime = currentInterruptTime;
+  }
+}
+
+// Verstuur MIDI-klokcommando's
 void sendMidiClock() {
-  unsigned long interval = 60000 / bpm / 24;  // 24 MIDI clock messages per beat
+  unsigned long interval = 60000 / bpm / 24;  // 24 MIDI-klokberichten per beat (standaard in MIDI)
   static unsigned long lastMidiTime = 0;
   unsigned long currentTime = millis();
 
   if (currentTime - lastMidiTime >= interval) {
-    MIDI.sendRealTime(midi::Clock);
-    Serial.println("MIDI Clock sent");
+    MIDI.sendRealTime(midi::Clock);  // Verstuur MIDI-klokbericht
     lastMidiTime = currentTime;
   }
 }
 
-//Flash led on each beat
+// LED knipperen op elke beat, behalve tijdens het programmeren van het tempo
 void flashLed() {
-  static unsigned long lastBeatTime = 0;
-  unsigned long beatInterval = 60000 / bpm;  // Time per beat in ms
-  unsigned long ledOnDuration = beatInterval / 4;  // LED on for 1/4 of the beat duration
-  unsigned long currentTime = millis();
-  
-  // Check if the current time is at the beginning of a new beat
-  if (currentTime - lastBeatTime >= beatInterval) {
-    // Turn the LED on at the start of the beat
-    digitalWrite(LED_PIN, HIGH);
-    lastBeatTime = currentTime;  // Update the last beat time
-  }
+  if (!beatInProgress) {  // Alleen knipperen als we niet bezig zijn met het programmeren van een beat
+    static unsigned long lastBeatTime = 0;
+    unsigned long beatInterval = 60000 / bpm;  // Tijd per beat in ms
+    unsigned long ledOnDuration = beatInterval / 4;  // LED aan voor 1/4 van de beatduur
+    unsigned long currentTime = millis();
+    
+    // Controleer of we aan het begin van een nieuwe beat zijn
+    if (currentTime - lastBeatTime >= beatInterval) {
+      // Zet de LED aan aan het begin van de beat
+      digitalWrite(LED_PIN, HIGH);
+      lastBeatTime = currentTime;  // Werk de tijd van de laatste beat bij
+    }
 
-  // Turn the LED off after one-quarter of the beat duration
-  if (currentTime - lastBeatTime >= ledOnDuration) {
-    digitalWrite(LED_PIN, LOW);
+    // Zet de LED uit na 1/4 van de beatduur
+    if (currentTime - lastBeatTime >= ledOnDuration) {
+      digitalWrite(LED_PIN, LOW);
+    }
   }
 }
 
+// Functie om het BPM in te stellen op basis van twee drukken
+void adjustBPM() {
+  if (buttonPressed) {
+    buttonPressed = false;  // Reset de knopstatus
+
+    // Als dit de eerste druk is, markeer het begin van de beat
+    if (!beatInProgress) {
+      lastBeatTime = millis();  // Sla de tijd van de eerste druk op
+      beatInProgress = true;    // Zet beat-in-progress op actief
+      digitalWrite(LED_PIN, HIGH);  // Zet de LED aan om aan te geven dat we wachten op de tweede druk
+    } 
+    // Als dit de tweede druk is, bereken het BPM en zet de LED weer uit
+    else {
+      unsigned long currentTime = millis();  // Tijd van de tweede druk
+      unsigned long beatDuration = currentTime - lastBeatTime;  // Tijd tussen de twee drukken
+
+      // Bereken het BPM
+      bpm = 60000 / beatDuration;  // 60000 ms per minuut gedeeld door de tijd per beat
+
+      // Zorg dat het BPM binnen de grenzen blijft
+      if (bpm < MIN_BPM) bpm = MIN_BPM;
+      if (bpm > MAX_BPM) bpm = MAX_BPM;  // Maximum BPM ingesteld op 1000
+
+      // Zet de LED uit om aan te geven dat de tweede druk is geregistreerd en de BPM is ingesteld
+      digitalWrite(LED_PIN, LOW);
+
+      // Reset voor de volgende meting
+      beatInProgress = false;
+    }
+  }
+}
 
 void setup() {
-  Serial.begin(115200);
-
-  // Initialize LED pin
+  // LED pin initialiseren
   pinMode(LED_PIN, OUTPUT);
-  digitalWrite(LED_PIN, LOW);  // Start with LED off
+  digitalWrite(LED_PIN, LOW);  // LED uit bij opstarten
 
-  // Initialize MIDI
+  // Drukknop initialiseren met interne pull-up weerstand
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+
+  // Interrupt instellen voor de knopdruk (falling edge, knop wordt ingedrukt)
+  attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), handleButtonPress, FALLING);
+
+  // MIDI initialiseren
   MIDI.begin(MIDI_CHANNEL_OMNI);
-
-  // Print initial BPM
-  Serial.print("Initial BPM: ");
-  Serial.println(bpm);
 }
 
 void loop() {
-  // Continuously send MIDI clock messages based on the BPM
+  // Continu MIDI-klokberichten versturen op basis van de BPM
   sendMidiClock();
 
-  // Flash LED at the same BPM rate
+  // Knipper LED op hetzelfde BPM-tempo
   flashLed();
+
+  // Controleer of er een knopdruk heeft plaatsgevonden en pas het BPM aan
+  adjustBPM();
 }
