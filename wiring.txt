@@ -1,0 +1,18 @@
+Component	Wemos D1 Pin	Notes
+Button 1	D1	Connect to GND (internal pull-up)
+Button 2	D3	Connect to GND (internal pull-up)
+Button 3	D0	Connect to GND (internal pull-up)
+
+LED	D2	Via 220-ohm resistor to GND
+
+OLED VCC	3.3V	
+OLED GND	GND	
+OLED SCL (Clock)	D5 (SCK)	SPI Clock Line
+OLED SDA (Data)	D7 (MOSI)	SPI Data Line
+OLED RES	D6	Reset Line
+OLED DC	D8	Data/Command
+OLED CS	D4	Chip Select
+
+MIDI Out Pin 5	TX (via 220Ω)	MIDI signal
+MIDI Out Pin 4	5V (via 220Ω)	Power
+MIDI Out Pin 2	GND	Ground
