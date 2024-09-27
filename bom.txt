@@ -1,0 +1,24 @@
+Basics
+==================================================
+1  2,80    Wemos D1 mini
+1  3,23    0.96" oled ssd1306
+1  2,63    Midi din connector chassis
+1  0,33    USB-C female chassis
+1          Tempo switch
+2          Finetune buttons
+
+Klok stabiliteit
+==================================================
+1  1,80    RTC DS3231
+
+Program Change & Midi kanaal selectie
+==================================================
+2  1,82    KY-040 Rotary encoder met knop
+1  3,23    0.96" oled ssd1306
+1          Foot switch
+
+Midi kanaal selectie 
+==================================================
+1  1,15    4x4 8 pin toetsen matrix
+1  1,26    4x4 4 pin led matrix
+2  3,10    I2C expander mcp23017 
