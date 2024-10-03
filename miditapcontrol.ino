@@ -3,22 +3,23 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <Fonts/FreeSansBold18pt7b.h>  // Include a custom font
 
 #define SCREEN_WIDTH 128  // OLED display width, in pixels
 #define SCREEN_HEIGHT 32  // OLED display height, in pixels
-#define OLED_RESET    -1   // Reset pin (or -1 if sharing Arduino reset pin)
+#define OLED_RESET -1     // Reset pin (or -1 if sharing Arduino reset pin)
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 // Constants
-#define DEFAULT_TEMPO 120   // Default BPM
-#define MIDI_TX_PIN D7      // Pin for MIDI TX (GPIO13)
-#define LED_PIN D0          // Pin for flashing LED (GPIO16) (D4 is internal en wordt alternating als je extern op D4 aansluit)
-#define BUTTON_PIN D3       // Pin for the tempo button (GPIO0)
-#define PLUS_BUTTON_PIN D5  // Pin for plus button (GPIO14)
-#define MINUS_BUTTON_PIN D6 // Pin for minus button (GPIO12)
-#define MIN_BPM 10          // Min BPM
-#define MAX_BPM 1000        // Max BPM
-#define DEBOUNCE_DELAY 50   // Debounce delay
+#define DEFAULT_TEMPO 120     // Default BPM
+#define MIDI_TX_PIN D7        // Pin for MIDI TX (GPIO13)
+#define LED_PIN D0            // Pin for flashing LED (GPIO16) (D4 is internal en wordt alternating als je extern op D4 aansluit)
+#define BUTTON_PIN D3         // Pin for the tempo button (GPIO0)
+#define PLUS_BUTTON_PIN D5    // Pin for plus button (GPIO14)
+#define MINUS_BUTTON_PIN D6   // Pin for minus button (GPIO12)
+#define MIN_BPM 10            // Min BPM
+#define MAX_BPM 1000          // Max BPM
+#define DEBOUNCE_DELAY 50     // Debounce delay
 #define EEPROM_BPM_ADDRESS 0  // EEPROM address for BPM storage
 
 // Variables
@@ -82,11 +83,10 @@ void adjustBPM() {
       lastBeatTime = millis();
       beatInProgress = true;
       digitalWrite(LED_PIN, HIGH);
-      
+
       // Display '---' on OLED to indicate waiting for the second tap
       displayWaitingForSecondTap();
-    } 
-    else {
+    } else {
       unsigned long currentTime = millis();
       unsigned long beatDuration = currentTime - lastBeatTime;
 
@@ -106,7 +106,7 @@ void adjustBPM() {
 // Fine-tune buttons for adjusting BPM
 void checkFineTuneButtons() {
   unsigned long currentTime = millis();
-  
+
   if (digitalRead(PLUS_BUTTON_PIN) == LOW && currentTime - lastButtonPressTime > buttonDebounceDelay) {
     bpm++;
     if (bpm > MAX_BPM) bpm = MAX_BPM;
@@ -143,9 +143,10 @@ void saveBPMToEEPROM() {
 // Display current BPM on OLED
 void displayCurrentBPM() {
   display.clearDisplay();
-  display.setTextSize(2);
+  //display.setTextSize(1);
+  display.setFont(&FreeSansBold18pt7b);  // Set the custom font
   display.setTextColor(SSD1306_WHITE);
-  display.setCursor(0, 10);
+  display.setCursor(0, 30);
   display.print(bpm);
   display.display();
 }
@@ -153,10 +154,11 @@ void displayCurrentBPM() {
 // Function to display '---' on OLED while waiting for the second tap
 void displayWaitingForSecondTap() {
   display.clearDisplay();
-  display.setTextSize(2);
+  //display.setTextSize(1);
+  display.setFont(&FreeSansBold18pt7b);  // Set the custom font
   display.setTextColor(SSD1306_WHITE);
-  display.setCursor(0, 10);
-  display.print("---");  // Display placeholder while waiting for the second tap
+  display.setCursor(0, 30);
+  display.print("- - -");  // Display placeholder while waiting for the second tap
   display.display();
 }
 
@@ -171,7 +173,8 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), handleButtonPress, FALLING);
 
   if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
-    while (true);
+    while (true)
+      ;
   }
 
   loadBPMFromEEPROM();
