@@ -12,7 +12,7 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 // Constants
 #define DEFAULT_TEMPO 120   // Default BPM
 #define MIDI_TX_PIN D7      // Pin for MIDI TX (GPIO13)
-#define LED_PIN D4          // Pin for flashing LED (GPIO2)
+#define LED_PIN D0          // Pin for flashing LED (GPIO16) (D4 is internal en wordt alternating als je extern op D4 aansluit)
 #define BUTTON_PIN D3       // Pin for the tempo button (GPIO0)
 #define PLUS_BUTTON_PIN D5  // Pin for plus button (GPIO14)
 #define MINUS_BUTTON_PIN D6 // Pin for minus button (GPIO12)
