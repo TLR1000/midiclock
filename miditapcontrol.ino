@@ -1,4 +1,5 @@
 #include <MIDI.h>
+#include <EEPROM.h>
 
 // Constants
 #define DEFAULT_TEMPO 120   // Standaard tempo in BPM als het niet verandert
@@ -10,6 +11,7 @@
 #define MIN_BPM 10          // Minimale BPM
 #define MAX_BPM 1000        // Maximale BPM
 #define DEBOUNCE_DELAY 50   // Debounce vertraging in milliseconden
+#define EEPROM_BPM_ADDRESS 0  // EEPROM-adres voor BPM opslag
 
 // Variabelen
 volatile bool buttonPressed = false;  // Geeft aan of de knop is ingedrukt
@@ -17,6 +19,8 @@ volatile unsigned long lastInterruptTime = 0;  // Tijd van de laatste interrupt 
 unsigned long bpm = DEFAULT_TEMPO;    // Huidige BPM
 bool beatInProgress = false;          // Geeft aan of we wachten op de tweede druk
 unsigned long lastBeatTime = 0;       // Tijd van de eerste knopdruk
+unsigned long lastButtonPressTime = 0;  // Tijd voor plus- en min-knop debounce
+const unsigned long buttonDebounceDelay = 50;  // Debounce tijd voor knoppen
 
 // MIDI Setup
 MIDI_CREATE_DEFAULT_INSTANCE();
@@ -93,32 +97,54 @@ void adjustBPM() {
 
       // Reset voor de volgende meting
       beatInProgress = false;
+
+      // Sla het nieuwe BPM op in EEPROM
+      saveBPMToEEPROM();
     }
   }
 }
 
 // Functie voor het verwerken van de plus- en min-knop
 void checkFineTuneButtons() {
-  // Controleer of de plusknop is ingedrukt
-  if (digitalRead(PLUS_BUTTON_PIN) == LOW) {
-    delay(DEBOUNCE_DELAY);  // Debounce
-    if (digitalRead(PLUS_BUTTON_PIN) == LOW) {
-      bpm++;  // Verhoog het BPM met 1
-      if (bpm > MAX_BPM) bpm = MAX_BPM;  // Zorg dat het niet boven de MAX_BPM gaat
-    }
+  unsigned long currentTime = millis();
+  
+  // Controleer of de plusknop is ingedrukt en verhoog BPM
+  if (digitalRead(PLUS_BUTTON_PIN) == LOW && currentTime - lastButtonPressTime > buttonDebounceDelay) {
+    bpm++;
+    if (bpm > MAX_BPM) bpm = MAX_BPM;  // Zorg dat het niet boven de MAX_BPM gaat
+    lastButtonPressTime = currentTime;
+    saveBPMToEEPROM();  // Sla BPM op in EEPROM
   }
 
-  // Controleer of de min-knop is ingedrukt
-  if (digitalRead(MINUS_BUTTON_PIN) == LOW) {
-    delay(DEBOUNCE_DELAY);  // Debounce
-    if (digitalRead(MINUS_BUTTON_PIN) == LOW) {
-      bpm--;  // Verlaag het BPM met 1
-      if (bpm < MIN_BPM) bpm = MIN_BPM;  // Zorg dat het niet onder de MIN_BPM gaat
-    }
+  // Controleer of de min-knop is ingedrukt en verlaag BPM
+  if (digitalRead(MINUS_BUTTON_PIN) == LOW && currentTime - lastButtonPressTime > buttonDebounceDelay) {
+    bpm--;
+    if (bpm < MIN_BPM) bpm = MIN_BPM;  // Zorg dat het niet onder de MIN_BPM gaat
+    lastButtonPressTime = currentTime;
+    saveBPMToEEPROM();  // Sla BPM op in EEPROM
   }
 }
 
+// Laad BPM uit EEPROM
+void loadBPMFromEEPROM() {
+  int storedBPM = EEPROM.read(EEPROM_BPM_ADDRESS) | (EEPROM.read(EEPROM_BPM_ADDRESS + 1) << 8);
+  if (storedBPM >= MIN_BPM && storedBPM <= MAX_BPM) {
+    bpm = storedBPM;
+  } else {
+    bpm = DEFAULT_TEMPO;  // Standaard tempo gebruiken als geen geldige BPM is gevonden
+  }
+}
+
+// Sla BPM op in EEPROM
+void saveBPMToEEPROM() {
+  EEPROM.write(EEPROM_BPM_ADDRESS, bpm & 0xFF);          // Sla de onderste byte op
+  EEPROM.write(EEPROM_BPM_ADDRESS + 1, (bpm >> 8) & 0xFF);  // Sla de bovenste byte op
+}
+
 void setup() {
+  // Seriële communicatie voor debugging (optioneel)
+  Serial.begin(115200);
+
   // LED pin initialiseren
   pinMode(LED_PIN, OUTPUT);
   digitalWrite(LED_PIN, LOW);  // LED uit bij opstarten
@@ -132,6 +158,9 @@ void setup() {
 
   // Interrupt instellen voor de knopdruk (falling edge, knop wordt ingedrukt)
   attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), handleButtonPress, FALLING);
+
+  // Laad de opgeslagen BPM uit EEPROM
+  loadBPMFromEEPROM();
 
   // MIDI initialiseren
   MIDI.begin(MIDI_CHANNEL_OMNI);
