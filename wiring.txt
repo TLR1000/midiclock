@@ -1,43 +1,24 @@
-Wiring Components:
-Wemos D1 Mini: The microcontroller handling MIDI and the buttons.
-LED: Connected to provide visual feedback for the beat.
-Button (for tempo programming): This button is used to set the tempo by detecting two presses.
-Plus Button: This button increases the BPM by 1 each time it’s pressed.
-Minus Button: This button decreases the BPM by 1 each time it’s pressed.
-MIDI Output: Sending MIDI clock signals to connected MIDI devices.
+Pin Assignments for Wemos D1 Mini:
+OLED Display (I2C):
 
-Pin Configuration:
-LED: Connected to D2.
-Tempo Button: Connected to D1.
-Plus Button: Connected to D5.
-Minus Button: Connected to D6.
-MIDI Output: Connected to D3.
+SCL → D1 (GPIO5).
+SDA → D2 (GPIO4).
 
-Wiring Instructions:
-1. LED (connected to D2):
-Anode (+) of the LED is connected to D2 through a 220Ω resistor.
-Cathode (-) of the LED is connected to GND (Ground).
-2. Tempo Button (connected to D1):
-One pin of the button is connected to D1.
-The other pin of the button is connected to GND (Ground).
-No external pull-up resistor is needed, as you're using the internal pull-up by configuring pinMode(BUTTON_PIN, INPUT_PULLUP) in the code.
-3. Plus Button (connected to D5):
-One pin of the button is connected to D5.
-The other pin of the button is connected to GND (Ground).
-Again, the internal pull-up resistor is activated using pinMode(PLUS_BUTTON_PIN, INPUT_PULLUP) in the code.
-4. Minus Button (connected to D6):
-One pin of the button is connected to D6.
-The other pin of the button is connected to GND (Ground).
-The internal pull-up resistor is used with pinMode(MINUS_BUTTON_PIN, INPUT_PULLUP) in the code.
-5. MIDI Output (connected to D3):
-Pin 5 of the MIDI DIN connector is connected to D3 via a 220Ω resistor.
-Pin 4 of the MIDI DIN connector is connected to 5V via a 220Ω resistor.
-Pin 2 of the MIDI DIN connector is connected to GND.
+Other Components:
+Tempo Button → Reassign to D3 (GPIO0).
+Plus Button → Reassign to D5 (GPIO14).
+Minus Button → Reassign to D6 (GPIO12).
+MIDI Output → Keep on D7 (GPIO13).
+LED → Connect to a free pin like D4 (GPIO2).
 
-Wiring Summary:
-Component	    Wemos D1 Pin  Other Connection
-LED	          D2	          GND (via 220Ω resistor)
-Tempo Button  D1	          GND
-Plus Button	  D5	          GND
-Minus Button  D6	          GND
-MIDI Out      D3            (Pin 5 of MIDI DIN)	Pin 4 (to 5V via 220Ω), Pin 2 (to GND)
+Wiring Diagram Overview:
+Component	Pin on Wemos D1 Mini	Other Connection
+OLED SCL (Clock)	D1 (GPIO5)	SCL on OLED Display
+OLED SDA (Data)	D2 (GPIO4)	SDA on OLED Display
+LED	D4 (GPIO2)	GND (via 220Ω resistor)
+Tempo Button	D3 (GPIO0)	GND
+Plus Button	D5 (GPIO14)	GND
+Minus Button	D6 (GPIO12)	GND
+MIDI Output Pin 5	D7 (GPIO13)	Pin 5 on MIDI DIN Connector (via 220Ω resistor)
+MIDI Output Pin 4	5V	Pin 4 on MIDI DIN Connector (via 220Ω resistor)
+MIDI Output Pin 2	GND	Pin 2 on MIDI DIN Connector
