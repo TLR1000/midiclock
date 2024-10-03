@@ -73,6 +73,7 @@ void flashLed() {
 }
 
 // Adjust BPM based on button presses
+// Adjust BPM based on button presses
 void adjustBPM() {
   if (buttonPressed) {
     buttonPressed = false;
@@ -81,6 +82,9 @@ void adjustBPM() {
       lastBeatTime = millis();
       beatInProgress = true;
       digitalWrite(LED_PIN, HIGH);
+      
+      // Display '---' on OLED to indicate waiting for the second tap
+      displayWaitingForSecondTap();
     } 
     else {
       unsigned long currentTime = millis();
@@ -143,6 +147,16 @@ void displayCurrentBPM() {
   display.setTextColor(SSD1306_WHITE);
   display.setCursor(0, 10);
   display.print(bpm);
+  display.display();
+}
+
+// Function to display '---' on OLED while waiting for the second tap
+void displayWaitingForSecondTap() {
+  display.clearDisplay();
+  display.setTextSize(2);
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(0, 10);
+  display.print("---");  // Display placeholder while waiting for the second tap
   display.display();
 }
 
