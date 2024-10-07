@@ -12,8 +12,8 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 // Constants
 #define DEFAULT_TEMPO 120     // Default BPM
-#define MIDI_TX_PIN D7        // Pin for MIDI TX (GPIO13)
-#define LED_PIN D0            // Pin for flashing LED (GPIO16) (D4 is internal en wordt alternating als je extern op D4 aansluit)
+#define MIDI_TX_PIN D7        // TX pin used for MIDI communication
+#define LED_PIN D0            // Pin for flashing LED (GPIO16)
 #define BUTTON_PIN D3         // Pin for the tempo button (GPIO0)
 #define PLUS_BUTTON_PIN D5    // Pin for plus button (GPIO14)
 #define MINUS_BUTTON_PIN D6   // Pin for minus button (GPIO12)
@@ -32,7 +32,7 @@ unsigned long lastButtonPressTime = 0;
 const unsigned long buttonDebounceDelay = 50;
 
 // MIDI Setup
-MIDI_CREATE_DEFAULT_INSTANCE();
+MIDI_CREATE_INSTANCE(HardwareSerial, Serial, MIDI);  // Use hardware Serial for MIDI
 
 void IRAM_ATTR handleButtonPress() {
   unsigned long currentInterruptTime = millis();
@@ -74,7 +74,6 @@ void flashLed() {
 }
 
 // Adjust BPM based on button presses
-// Adjust BPM based on button presses
 void adjustBPM() {
   if (buttonPressed) {
     buttonPressed = false;
@@ -83,13 +82,10 @@ void adjustBPM() {
       lastBeatTime = millis();
       beatInProgress = true;
       digitalWrite(LED_PIN, HIGH);
-
-      // Display '---' on OLED to indicate waiting for the second tap
       displayWaitingForSecondTap();
     } else {
       unsigned long currentTime = millis();
       unsigned long beatDuration = currentTime - lastBeatTime;
-
       bpm = 60000 / beatDuration;
 
       if (bpm < MIN_BPM) bpm = MIN_BPM;
@@ -143,7 +139,6 @@ void saveBPMToEEPROM() {
 // Display current BPM on OLED
 void displayCurrentBPM() {
   display.clearDisplay();
-  //display.setTextSize(1);
   display.setFont(&FreeSansBold18pt7b);  // Set the custom font
   display.setTextColor(SSD1306_WHITE);
   display.setCursor(0, 30);
@@ -154,7 +149,6 @@ void displayCurrentBPM() {
 // Function to display '---' on OLED while waiting for the second tap
 void displayWaitingForSecondTap() {
   display.clearDisplay();
-  //display.setTextSize(1);
   display.setFont(&FreeSansBold18pt7b);  // Set the custom font
   display.setTextColor(SSD1306_WHITE);
   display.setCursor(0, 30);
@@ -180,6 +174,7 @@ void setup() {
   loadBPMFromEEPROM();
   displayCurrentBPM();
 
+  Serial.begin(31250);  // Initialize MIDI at 31250 baud using the TX pin
   MIDI.begin(MIDI_CHANNEL_OMNI);
 }
 
