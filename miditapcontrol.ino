@@ -31,6 +31,13 @@ unsigned long lastBeatTime = 0;
 unsigned long lastButtonPressTime = 0;
 const unsigned long buttonDebounceDelay = 50;
 
+// Variables for pulse effect
+int pulsePosition = 80;  // Starting position for the pulse on the right half
+int pulseSpeed = 5;      // Speed at which the pulse moves across the screen
+int spikeHeight = 10;    // Height of the spike
+bool isSpiking = false;
+int heartbeatY = SCREEN_HEIGHT / 2;  // Center Y position for the heartbeat
+
 // MIDI Setup
 MIDI_CREATE_INSTANCE(HardwareSerial, Serial, MIDI);  // Use hardware Serial for MIDI
 
@@ -51,15 +58,46 @@ void sendMidiClock() {
   if (currentTime - lastMidiTime >= interval) {
     MIDI.sendRealTime(midi::Clock);
     lastMidiTime = currentTime;
+    isSpiking = true;  // Trigger the heartbeat spike
+    drawHeartbeat();
   }
 }
+
+
+// Draw a moving pulse-like shape that forms exactly one full sine wave, centered vertically
+void drawHeartbeat() {
+  int localPulseSpeed = 2;  // Set this to control the spacing between the lines. A value of 1 will minimize gaps.
+
+  // Clear the old rectangle area on the right side of the screen
+  display.fillRect(80, 0, SCREEN_WIDTH - 80, SCREEN_HEIGHT, SSD1306_BLACK);
+
+  // Define the width of the bar to make it appear wider
+  int rectWidth = 3;                                                                          // Slightly wider rectangle for a more pronounced look
+  float waveFrequency = (2 * PI) / (SCREEN_WIDTH - 80);                                       // Adjust frequency for one full wave
+  int rectHeight = abs((sin((pulsePosition - 80) * waveFrequency) * SCREEN_HEIGHT) / 2) + 4;  // Calculate height
+
+  // Center the rectangle vertically
+  int rectY = (SCREEN_HEIGHT - rectHeight) / 2;
+
+  // Draw the rectangle at the current pulse position with the calculated height
+  display.fillRect(pulsePosition, rectY, rectWidth, rectHeight, SSD1306_WHITE);
+
+  // Move the pulse position to create the walking effect
+  pulsePosition += localPulseSpeed;  // Adjust pulseSpeed here for spacing
+  if (pulsePosition > SCREEN_WIDTH) {
+    pulsePosition = 80;  // Reset the position when reaching the screen's end
+  }
+
+  display.display();
+}
+
 
 // Flash LED for each beat
 void flashLed() {
   if (!beatInProgress) {
     static unsigned long lastBeatTime = 0;
     unsigned long beatInterval = 60000 / bpm;
-    unsigned long ledOnDuration = beatInterval / 4;
+    unsigned long ledOnDuration = beatInterval / 10;
     unsigned long currentTime = millis();
 
     if (currentTime - lastBeatTime >= beatInterval) {
@@ -152,7 +190,7 @@ void displayWaitingForSecondTap() {
   display.setFont(&FreeSansBold18pt7b);  // Set the custom font
   display.setTextColor(SSD1306_WHITE);
   display.setCursor(0, 30);
-  display.print("- - -");  // Display placeholder while waiting for the second tap
+  display.print("- - -");
   display.display();
 }
 
