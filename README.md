@@ -1,4 +1,6 @@
-# Onderdelen en Functies  
+Dit project is een MIDI Tempo Controller gebaseerd op een Arduino microcontroller (in dit geval een Wemos D1 Mini). Het apparaat stuurt MIDI-kloksignalen uit via een MIDI DIN-aansluiting, waarmee andere MIDI-apparaten gesynchroniseerd kunnen worden. Het tempo (BPM) kan worden ingesteld met een tap-knop en fijn worden aangepast met plus- en minknoppen. De huidige BPM wordt weergegeven op een 128x32 OLED-display, terwijl een LED visuele feedback geeft bij elke beat. De USB-C chassis connector zorgt voor gemakkelijke voeding en programmering van het apparaat.
+
+## Onderdelen en Functies  
 tft-scherm: Dit scherm toont het huidige BPM (beats per minute).
 Tapknop: Hiermee stel je het tempo in door twee opeenvolgende drukken. De eerste druk markeert het begin van een beat en de tweede druk markeert de volgende beat, waarna het apparaat het nieuwe tempo berekent.
 Plusknop: Verhoogt het BPM met één bij elke druk.
