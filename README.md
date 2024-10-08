@@ -1,11 +1,11 @@
-Onderdelen en Functies  
+# Onderdelen en Functies  
 tft-scherm: Dit scherm toont het huidige BPM (beats per minute).
 Tapknop: Hiermee stel je het tempo in door twee opeenvolgende drukken. De eerste druk markeert het begin van een beat en de tweede druk markeert de volgende beat, waarna het apparaat het nieuwe tempo berekent.
 Plusknop: Verhoogt het BPM met één bij elke druk.
 Minknop: Verlaagt het BPM met één bij elke druk.
 LED: De LED knippert op het ritme van het ingestelde tempo en blijft aan na de eerste tik van de tapknop om aan te geven dat het apparaat wacht op de tweede tik.
 
-Basic operation
+## Basic operation
 1. Inschakelen en Opstarten  
 Bij het inschakelen van de MIDI Tempo Controller wordt het laatst ingestelde BPM automatisch geladen uit het geheugen (EEPROM) en weergegeven op het tft-scherm.
 2. Instellen van het Tempo  
