@@ -1,224 +1,198 @@
 #include <MIDI.h>
-#include <EEPROM.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
-#include <Fonts/FreeSansBold18pt7b.h>  // Include a custom font
+#include <Adafruit_MCP23X17.h>
+#include <Fonts/FreeSansBold24pt7b.h>  // Include the larger font
 
-#define SCREEN_WIDTH 128  // OLED display width, in pixels
-#define SCREEN_HEIGHT 32  // OLED display height, in pixels
-#define OLED_RESET -1     // Reset pin (or -1 if sharing Arduino reset pin)
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+#define OLED_RESET -1
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+Adafruit_MCP23X17 mcp;  // I2C expander
 
 // Constants
-#define DEFAULT_TEMPO 120     // Default BPM
-#define MIDI_TX_PIN D7        // TX pin used for MIDI communication
-#define LED_PIN D0            // Pin for flashing LED (GPIO16)
-#define BUTTON_PIN D3         // Pin for the tempo button (GPIO0)
-#define PLUS_BUTTON_PIN D5    // Pin for plus button (GPIO14)
-#define MINUS_BUTTON_PIN D6   // Pin for minus button (GPIO12)
-#define MIN_BPM 10            // Min BPM
-#define MAX_BPM 1000          // Max BPM
-#define DEBOUNCE_DELAY 50     // Debounce delay
-#define EEPROM_BPM_ADDRESS 0  // EEPROM address for BPM storage
+#define DEFAULT_TEMPO 120
+#define MIDI_TX_PIN 13
+#define RED_BEAT_INDICATOR_LED 16
+#define TAP_BUTTON_PIN 0
+#define MIN_BPM 10
+#define MAX_BPM 1000
+#define DEBOUNCE_DELAY 50
+
+// MCP23X17 GPIO Pins
+#define BPM_SET_BUTTON 1    // GPA1
+#define BPM_PLUS_BUTTON 2   // GPA2
+#define BPM_MINUS_BUTTON 3  // GPA3
+#define SET_LED 9           // GPB1
 
 // Variables
-volatile bool buttonPressed = false;
+volatile bool tap_buttonPressed = false;
 volatile unsigned long lastInterruptTime = 0;
 unsigned long bpm = DEFAULT_TEMPO;
+unsigned long newBpm = DEFAULT_TEMPO;
 bool beatInProgress = false;
 unsigned long lastBeatTime = 0;
-unsigned long lastButtonPressTime = 0;
-const unsigned long buttonDebounceDelay = 50;
-
-// Variables for pulse effect
-int pulsePosition = 80;  // Starting position for the pulse on the right half
-int pulseSpeed = 5;      // Speed at which the pulse moves across the screen
-int spikeHeight = 10;    // Height of the spike
-bool isSpiking = false;
-int heartbeatY = SCREEN_HEIGHT / 2;  // Center Y position for the heartbeat
+bool bpmSet = false;
+bool bpmUpdated = false;
+bool setButtonEnabled = false;  // To control when the set button is active
 
 // MIDI Setup
-MIDI_CREATE_INSTANCE(HardwareSerial, Serial, MIDI);  // Use hardware Serial for MIDI
+MIDI_CREATE_INSTANCE(HardwareSerial, Serial, MIDI);
 
-void IRAM_ATTR handleButtonPress() {
+void IRAM_ATTR handleTapButtonPress() {
   unsigned long currentInterruptTime = millis();
   if (currentInterruptTime - lastInterruptTime > DEBOUNCE_DELAY) {
-    buttonPressed = true;
+    tap_buttonPressed = true;
     lastInterruptTime = currentInterruptTime;
   }
 }
 
-// Send MIDI Clock
-void sendMidiClock() {
-  unsigned long interval = 60000 / bpm / 24;
-  static unsigned long lastMidiTime = 0;
-  unsigned long currentTime = millis();
-
-  if (currentTime - lastMidiTime >= interval) {
-    MIDI.sendRealTime(midi::Clock);
-    lastMidiTime = currentTime;
-    isSpiking = true;  // Trigger the heartbeat spike
-    drawHeartbeat();
-  }
-}
-
-
-// Draw a moving pulse-like shape that forms exactly one full sine wave, centered vertically
-void drawHeartbeat() {
-  int localPulseSpeed = 2;  // Set this to control the spacing between the lines. A value of 1 will minimize gaps.
-
-  // Clear the old rectangle area on the right side of the screen
-  display.fillRect(80, 0, SCREEN_WIDTH - 80, SCREEN_HEIGHT, SSD1306_BLACK);
-
-  // Define the width of the bar to make it appear wider
-  int rectWidth = 3;                                                                          // Slightly wider rectangle for a more pronounced look
-  float waveFrequency = (2 * PI) / (SCREEN_WIDTH - 80);                                       // Adjust frequency for one full wave
-  int rectHeight = abs((sin((pulsePosition - 80) * waveFrequency) * SCREEN_HEIGHT) / 2) + 4;  // Calculate height
-
-  // Center the rectangle vertically
-  int rectY = (SCREEN_HEIGHT - rectHeight) / 2;
-
-  // Draw the rectangle at the current pulse position with the calculated height
-  display.fillRect(pulsePosition, rectY, rectWidth, rectHeight, SSD1306_WHITE);
-
-  // Move the pulse position to create the walking effect
-  pulsePosition += localPulseSpeed;  // Adjust pulseSpeed here for spacing
-  if (pulsePosition > SCREEN_WIDTH) {
-    pulsePosition = 80;  // Reset the position when reaching the screen's end
-  }
-
-  display.display();
-}
-
-
-// Flash LED for each beat
-void flashLed() {
-  if (!beatInProgress) {
-    static unsigned long lastBeatTime = 0;
-    unsigned long beatInterval = 60000 / bpm;
-    unsigned long ledOnDuration = beatInterval / 10;
-    unsigned long currentTime = millis();
-
-    if (currentTime - lastBeatTime >= beatInterval) {
-      digitalWrite(LED_PIN, HIGH);
-      lastBeatTime = currentTime;
-    }
-
-    if (currentTime - lastBeatTime >= ledOnDuration) {
-      digitalWrite(LED_PIN, LOW);
-    }
-  }
-}
-
-// Adjust BPM based on button presses
-void adjustBPM() {
-  if (buttonPressed) {
-    buttonPressed = false;
-
-    if (!beatInProgress) {
-      lastBeatTime = millis();
-      beatInProgress = true;
-      digitalWrite(LED_PIN, HIGH);
-      displayWaitingForSecondTap();
-    } else {
-      unsigned long currentTime = millis();
-      unsigned long beatDuration = currentTime - lastBeatTime;
-      bpm = 60000 / beatDuration;
-
-      if (bpm < MIN_BPM) bpm = MIN_BPM;
-      if (bpm > MAX_BPM) bpm = MAX_BPM;
-
-      digitalWrite(LED_PIN, LOW);
-      beatInProgress = false;
-      saveBPMToEEPROM();
-      displayCurrentBPM();
-    }
-  }
-}
-
-// Fine-tune buttons for adjusting BPM
-void checkFineTuneButtons() {
-  unsigned long currentTime = millis();
-
-  if (digitalRead(PLUS_BUTTON_PIN) == LOW && currentTime - lastButtonPressTime > buttonDebounceDelay) {
-    bpm++;
-    if (bpm > MAX_BPM) bpm = MAX_BPM;
-    lastButtonPressTime = currentTime;
-    saveBPMToEEPROM();
-    displayCurrentBPM();
-  }
-
-  if (digitalRead(MINUS_BUTTON_PIN) == LOW && currentTime - lastButtonPressTime > buttonDebounceDelay) {
-    bpm--;
-    if (bpm < MIN_BPM) bpm = MIN_BPM;
-    lastButtonPressTime = currentTime;
-    saveBPMToEEPROM();
-    displayCurrentBPM();
-  }
-}
-
-// Load BPM from EEPROM
-void loadBPMFromEEPROM() {
-  int storedBPM = EEPROM.read(EEPROM_BPM_ADDRESS) | (EEPROM.read(EEPROM_BPM_ADDRESS + 1) << 8);
-  if (storedBPM >= MIN_BPM && storedBPM <= MAX_BPM) {
-    bpm = storedBPM;
-  } else {
-    bpm = DEFAULT_TEMPO;
-  }
-}
-
-// Save BPM to EEPROM
-void saveBPMToEEPROM() {
-  EEPROM.write(EEPROM_BPM_ADDRESS, bpm & 0xFF);
-  EEPROM.write(EEPROM_BPM_ADDRESS + 1, (bpm >> 8) & 0xFF);
-}
-
-// Display current BPM on OLED
-void displayCurrentBPM() {
-  display.clearDisplay();
-  display.setFont(&FreeSansBold18pt7b);  // Set the custom font
-  display.setTextColor(SSD1306_WHITE);
-  display.setCursor(0, 30);
-  display.print(bpm);
-  display.display();
-}
-
-// Function to display '---' on OLED while waiting for the second tap
-void displayWaitingForSecondTap() {
-  display.clearDisplay();
-  display.setFont(&FreeSansBold18pt7b);  // Set the custom font
-  display.setTextColor(SSD1306_WHITE);
-  display.setCursor(0, 30);
-  display.print("- - -");
-  display.display();
-}
-
 void setup() {
-  pinMode(LED_PIN, OUTPUT);
-  digitalWrite(LED_PIN, LOW);
-
-  pinMode(BUTTON_PIN, INPUT_PULLUP);
-  pinMode(PLUS_BUTTON_PIN, INPUT_PULLUP);
-  pinMode(MINUS_BUTTON_PIN, INPUT_PULLUP);
-
-  attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), handleButtonPress, FALLING);
+  pinMode(RED_BEAT_INDICATOR_LED, OUTPUT);
+  digitalWrite(RED_BEAT_INDICATOR_LED, LOW);
+  pinMode(TAP_BUTTON_PIN, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(TAP_BUTTON_PIN), handleTapButtonPress, FALLING);
 
   if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
-    while (true)
-      ;
+    while (true); // Halt if display fails
   }
 
-  loadBPMFromEEPROM();
-  displayCurrentBPM();
+  if (!mcp.begin_I2C()) {   // Initialize MCP23017 over I2C
+    while (true); // Halt if MCP23017 fails to initialize
+  }
 
-  Serial.begin(31250);  // Initialize MIDI at 31250 baud using the TX pin
+  // Set the button pins as inputs with pull-ups
+  mcp.pinMode(BPM_SET_BUTTON, INPUT);
+  mcp.pinMode(BPM_PLUS_BUTTON, INPUT);
+  mcp.pinMode(BPM_MINUS_BUTTON, INPUT);
+
+  mcp.digitalWrite(BPM_SET_BUTTON, HIGH);  // Enable pull-up
+  mcp.digitalWrite(BPM_PLUS_BUTTON, HIGH); // Enable pull-up
+  mcp.digitalWrite(BPM_MINUS_BUTTON, HIGH); // Enable pull-up
+
+  // Set LED as output
+  mcp.pinMode(SET_LED, OUTPUT);
+  mcp.digitalWrite(SET_LED, LOW);
+
+  Serial.begin(31250);
   MIDI.begin(MIDI_CHANNEL_OMNI);
+  displayCurrentBPM();
 }
 
 void loop() {
   sendMidiClock();
   flashLed();
   adjustBPM();
-  checkFineTuneButtons();
+  handleBpmButtons();
+}
+
+// Send MIDI Clock if BPM has been set
+void sendMidiClock() {
+  if (bpmSet) {
+    unsigned long interval = 60000 / bpm / 24;
+    static unsigned long lastMidiTime = 0;
+    unsigned long currentTime = millis();
+
+    if (currentTime - lastMidiTime >= interval) {
+      MIDI.sendRealTime(midi::Clock);
+      lastMidiTime = currentTime;
+    }
+  }
+}
+
+// Flash LED for each beat
+void flashLed() {
+  if (!beatInProgress) {
+    unsigned long beatInterval = 60000 / bpm;
+    unsigned long ledOnDuration = beatInterval / 10;
+    unsigned long currentTime = millis();
+
+    if (currentTime - lastBeatTime >= beatInterval) {
+      digitalWrite(RED_BEAT_INDICATOR_LED, HIGH);
+      lastBeatTime = currentTime;
+    }
+
+    if (currentTime - lastBeatTime >= ledOnDuration) {
+      digitalWrite(RED_BEAT_INDICATOR_LED, LOW);
+    }
+  }
+}
+
+// Adjust BPM based on tap button presses
+void adjustBPM() {
+  if (tap_buttonPressed) {
+    tap_buttonPressed = false;
+
+    if (!beatInProgress) {
+      lastBeatTime = millis();
+      beatInProgress = true;
+      digitalWrite(RED_BEAT_INDICATOR_LED, HIGH);  // Red LED stays on after first tap
+      displayWaitingForSecondTap();
+    } else {
+      unsigned long currentTime = millis();
+      unsigned long beatDuration = currentTime - lastBeatTime;
+      newBpm = 60000 / beatDuration;
+
+      if (newBpm < MIN_BPM) newBpm = MIN_BPM;
+      if (newBpm > MAX_BPM) newBpm = MAX_BPM;
+
+      beatInProgress = false;
+      bpmUpdated = true;
+      setButtonEnabled = true;  // Enable the set button after second tap
+      mcp.digitalWrite(SET_LED, HIGH);  // Blue LED is lit when set button is enabled
+      digitalWrite(RED_BEAT_INDICATOR_LED, LOW); // Turn off the red LED after the second tap
+      displayCurrentBPM();
+    }
+  }
+}
+
+void handleBpmButtons() {
+  static unsigned long lastDebounceTime = 0;
+  const unsigned long debounceDelay = 200; // Adjust as needed for stable readings
+
+  unsigned long currentTime = millis();
+
+  if (currentTime - lastDebounceTime > debounceDelay) {
+    if (!mcp.digitalRead(BPM_PLUS_BUTTON)) {
+      newBpm = min(newBpm + 1, (unsigned long)MAX_BPM);
+      bpmUpdated = true;
+      displayCurrentBPM();
+      lastDebounceTime = currentTime;
+    }
+    if (!mcp.digitalRead(BPM_MINUS_BUTTON)) {
+      newBpm = max(newBpm - 1, (unsigned long)MIN_BPM);
+      bpmUpdated = true;
+      displayCurrentBPM();
+      lastDebounceTime = currentTime;
+    }
+    if (setButtonEnabled && !mcp.digitalRead(BPM_SET_BUTTON) && bpmUpdated) {  // Only allow the set button after the second tap
+      bpm = newBpm; // Set new BPM
+      bpmSet = true;
+      bpmUpdated = false;
+      setButtonEnabled = false;  // Disable the set button after it's pressed
+      mcp.digitalWrite(SET_LED, LOW); // Turn off blue LED
+      lastDebounceTime = currentTime;
+    }
+  }
+}
+
+// Display current BPM on OLED
+void displayCurrentBPM() {
+  display.clearDisplay();
+  display.setFont(&FreeSansBold24pt7b);  // Set larger font
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(0, 40);  // Adjust Y position for larger font
+  display.print(newBpm);
+  display.display();
+}
+
+// Display '---' while waiting for second tap
+void displayWaitingForSecondTap() {
+  display.clearDisplay();
+  display.setFont(&FreeSansBold24pt7b);  // Set larger font
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(0, 40);  // Adjust Y position for larger font
+  display.print("- - -");
+  display.display();
 }
