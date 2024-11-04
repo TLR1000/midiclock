@@ -29,6 +29,12 @@ Adafruit_MCP23X17 mcp;  // I2C expander
 #define BPM_MINUS_BUTTON 3  // GPA3
 #define SET_LED 9           // GPB1
 
+// Define pins for STARTSTOP and CONT buttons and LEDs
+#define STARTSTOP 4       // GPA4
+#define CONT 5            // GPA5
+#define STARTSTOP_LED 12  // GPB4 for START/STOP LED
+#define CONT_LED 13       // GPB5 for CONT LED
+
 // Variables
 volatile bool tap_buttonPressed = false;
 volatile unsigned long lastInterruptTime = 0;
@@ -39,6 +45,11 @@ unsigned long lastBeatTime = 0;
 bool bpmSet = false;
 bool bpmUpdated = false;
 bool setButtonEnabled = false;  // To control when the set button is active
+
+// Global variables for state
+bool playing = false;  // Keeps track of whether the system is playing or stopped
+bool startStopButtonStateIsStart = true;   // Tracks whether the STARTSTOP button should send START or STOP
+bool isContEnabled = false;  // Tracks whether the CONT button is enabled
 
 // MIDI Setup
 MIDI_CREATE_INSTANCE(HardwareSerial, Serial, MIDI);
@@ -146,21 +157,70 @@ void handleBpmButtons() {
   }
 }
 
-// Send MIDI Clock if BPM has been set
-void sendMidiClock() {
-  if (bpmSet) {
-    unsigned long interval = 60000 / bpm / 24;
-    static unsigned long lastMidiTime = 0;
-    unsigned long currentTime = millis();
+// Handle STARTSTOP button functionality
+void handleStartStopButton() {
+  if (!mcp.digitalRead(STARTSTOP)) {  // Button is pressed
+    if (!playing) {  // If not playing, START the playback
+      // Send MIDI Start
+      MIDI.sendRealTime(midi::Start);
+      Serial.println("MIDI Start sent");
 
-    if (currentTime - lastMidiTime >= interval) {
-      MIDI.sendRealTime(midi::Clock);
-      lastMidiTime = currentTime;
+      // Update the state
+      playing = true;  // Now the system is playing
+      startStopButtonStateIsStart = false; // Button function switches to STOP
+      mcp.digitalWrite(STARTSTOP_LED, LOW);  // Turn off the LED because function is now STOP
+      
+      // CONT button should be disabled while playing
+      isContEnabled = false;
+      mcp.digitalWrite(CONT_LED, LOW);  // Turn off CONT LED
+    } else {
+      // Send MIDI Stop
+      MIDI.sendRealTime(midi::Stop);
+      Serial.println("MIDI Stop sent");
+
+      // Update the state
+      playing = false; // System is now stopped
+      startStopButtonStateIsStart = true;  // Button function switches back to START
+      mcp.digitalWrite(STARTSTOP_LED, HIGH);  // Turn on the LED because function is now START
+
+      // CONT button should be enabled when stopped
+      isContEnabled = true;
+      mcp.digitalWrite(CONT_LED, HIGH);  // Turn on CONT LED
     }
+    delay(200);  // Debounce delay
   }
 }
 
+// Handle CONT button functionality
+void handleContButton() {
+  if (isContEnabled && !mcp.digitalRead(CONT)) {  // Button is pressed and CONT is enabled
+    // Send MIDI Continue
+    MIDI.sendRealTime(midi::Continue);
+    Serial.println("MIDI Continue sent");
 
+    // Update the state
+    playing = true;  // Now the system is playing after CONTINUE
+    startStopButtonStateIsStart = false; // STARTSTOP button function should be STOP now
+    mcp.digitalWrite(STARTSTOP_LED, LOW);  // Turn off STARTSTOP LED (function is STOP)
+
+    // CONT button should be disabled while playing
+    isContEnabled = false;
+    mcp.digitalWrite(CONT_LED, LOW);  // Turn off CONT LED
+    delay(200);  // Debounce delay
+  }
+}
+
+// Send MIDI Clock if BPM has been set
+void sendMidiClock() {
+  unsigned long interval = 60000 / bpm / 24;
+  static unsigned long lastMidiTime = 0;
+  unsigned long currentTime = millis();
+
+  if (currentTime - lastMidiTime >= interval) {
+    MIDI.sendRealTime(midi::Clock);
+    lastMidiTime = currentTime;
+  }
+}
 
 // Flash LED for each beat
 void flashLed() {
@@ -237,6 +297,21 @@ void setup() {
   mcp.pinMode(SET_LED, OUTPUT);
   mcp.digitalWrite(SET_LED, LOW);
 
+  // Set up STARTSTOP and CONT buttons and LEDs
+  mcp.pinMode(STARTSTOP, INPUT);
+  mcp.pinMode(CONT, INPUT);
+  mcp.digitalWrite(STARTSTOP, HIGH);  // Enable pull-up for STARTSTOP button
+  mcp.digitalWrite(CONT, HIGH);       // Enable pull-up for CONT button
+
+  mcp.pinMode(STARTSTOP_LED, OUTPUT);
+  mcp.pinMode(CONT_LED, OUTPUT);
+
+  // Initially, CONT button is disabled and CONT_LED is off
+  mcp.digitalWrite(CONT_LED, LOW);
+
+  // Initially, STARTSTOP_LED is on because the function is START
+  mcp.digitalWrite(STARTSTOP_LED, HIGH);
+
   // Read the stored BPM value from EEPROM on startup
   Wire.begin();  // Initialize I2C
   bpm = readBpmFromEEPROM();
@@ -251,11 +326,12 @@ void setup() {
   displayCurrentBPM();
 }
 
-
 void loop() {
   sendMidiClock();           // Continually send MIDI clock based on BPM
   flashLed();                // Flash LED based on the current BPM
   adjustBPMWithTapButton();  // Handle tap button
   handleBpmButtons();        // Handle + and - buttons
   handleSetButton();         // Handle Set button to confirm the BPM
+  handleStartStopButton();
+  handleContButton();
 }
