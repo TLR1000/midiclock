@@ -31,8 +31,8 @@ Om het nieuwe tempo via MIDI uit te sturen dient SET ingedrukt te worden. De bla
 De MIDI Tempo Controller stuurt automatisch MIDI-kloksignalen naar je aangesloten MIDI-apparaten, zodat ze synchroon lopen met het ingestelde BPM.
 Het ingestelde tempo wordt opgeslagen in het geheugen zodat de controller er de volgende keer mee opstart als beginwaarde.
  
-Fijn Afstellen van het BPM  
-Gebruik de plus- en minknoppen (D5 en D6) om het tempo handmatig aan te passen:
+Fijn Afstellen van het BPM:  
+Gebruik de plus- en minknoppen om het tempo handmatig aan te passen:
 Plusknop: Verhoogt het BPM met één stap per druk.
 Minknop: Verlaagt het BPM met één stap per druk.
 
