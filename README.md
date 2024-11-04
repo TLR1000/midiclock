@@ -1,6 +1,8 @@
-## Korte versie gebruik van het midi clock controller pedal board:   
+# Korte versie gebruik van het midi clock controller pedal board:   
 TAP wordt gebruikt om de nieuwe waarde in te stellen.   
-SET maakt de nieuw ingestelde waarde ook daadwerkelijk actief.
+SET maakt de nieuw ingestelde waarde actief op MIDI.
+
+# Uitgebreide versie gebruik van het midi clock controller pedal board:   
 
 ## About  
 Dit project is een MIDI Tempo Controller gebaseerd op een Arduino microcontroller (in dit geval een Wemos D1 Mini). Het apparaat stuurt MIDI-kloksignalen uit via een MIDI DIN-aansluiting, waarmee andere MIDI-apparaten gesynchroniseerd kunnen worden. Het tempo (BPM) kan worden ingesteld met een tap-knop en fijn worden aangepast met plus- en minknoppen. De huidige BPM wordt weergegeven op een 128x32 OLED-display, terwijl een LED visuele feedback geeft bij elke beat. De USB-C chassis connector zorgt voor gemakkelijke voeding en programmering van het apparaat.
@@ -17,7 +19,7 @@ Rode LED: De LED knippert op het ritme van het ingestelde tempo en blijft aan na
 Inschakelen en Opstarten  
 Bij het inschakelen van de MIDI Tempo Controller wordt het laatst ingestelde BPM automatisch geladen uit het geheugen en weergegeven op het tft-scherm.
 
-# Instellen van het Tempo  
+## Instellen van het Tempo  
  
 1 Gebruik de knop TAP:  
 Druk één keer op TAP om het begin van een beat te markeren. Het scherm toont - - - en de rode led brandt continue om aan te geven dat het apparaat wacht op de tweede tik.   
@@ -29,7 +31,7 @@ Om het nieuwe tempo via MIDI uit te sturen dient SET ingedrukt te worden. De bla
 De MIDI Tempo Controller stuurt automatisch MIDI-kloksignalen naar je aangesloten MIDI-apparaten, zodat ze synchroon lopen met het ingestelde BPM.
 Het ingestelde tempo wordt opgeslagen in het geheugen zodat de controller er de volgende keer mee opstart als beginwaarde.
  
-4. Fijn Afstellen van het BPM  
+3. Fijn Afstellen van het BPM  
 Gebruik de plus- en minknoppen (D5 en D6) om het tempo handmatig aan te passen:
 Plusknop: Verhoogt het BPM met één stap per druk.
 Minknop: Verlaagt het BPM met één stap per druk.
