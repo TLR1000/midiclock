@@ -21,17 +21,17 @@ Bij het inschakelen van de MIDI Tempo Controller wordt het laatst ingestelde BPM
 
 ## Instellen van het Tempo  
  
-1 Gebruik de knop TAP:  
+1. Gebruik de knop TAP:  
 Druk één keer op TAP om het begin van een beat te markeren. Het scherm toont - - - en de rode led brandt continue om aan te geven dat het apparaat wacht op de tweede tik.   
 Druk nogmaals op de tapknop om het begin van de volgende beat te markeren.   
 Het apparaat berekent dan het BPM en toont het resultaat op het tft-scherm. Zolang SET nog niet is ingedrukt, kan het tempo onbeperkt gewijzigd worden voordat het actief wordt.
 
-2. Gebruik de knop SET:
+2. Gebruik de knop SET:   
 Om het nieuwe tempo via MIDI uit te sturen dient SET ingedrukt te worden. De blauwe led licht op indien er een nieuw tempo gekozen is dat nog niet op midi actief is.
 De MIDI Tempo Controller stuurt automatisch MIDI-kloksignalen naar je aangesloten MIDI-apparaten, zodat ze synchroon lopen met het ingestelde BPM.
 Het ingestelde tempo wordt opgeslagen in het geheugen zodat de controller er de volgende keer mee opstart als beginwaarde.
  
-3. Fijn Afstellen van het BPM  
+Fijn Afstellen van het BPM  
 Gebruik de plus- en minknoppen (D5 en D6) om het tempo handmatig aan te passen:
 Plusknop: Verhoogt het BPM met één stap per druk.
 Minknop: Verlaagt het BPM met één stap per druk.
