@@ -71,6 +71,134 @@ void writeBpmToEEPROM(uint16_t bpmToStore) {
   Wire.endTransmission();
 }
 
+// Function to enable the set button and turn on the blue LED
+void enableSetButton() {
+  setButtonEnabled = true;  // Enable the set button
+  mcp.digitalWrite(SET_LED, HIGH);  // Turn on blue LED
+}
+
+// Function to handle tap button presses
+void adjustBPMWithTapButton() {
+  if (tap_buttonPressed) {
+    tap_buttonPressed = false;
+
+    if (!beatInProgress) {
+      lastBeatTime = millis();
+      beatInProgress = true;
+      digitalWrite(RED_BEAT_INDICATOR_LED, HIGH);  // Red LED stays on after first tap
+      displayWaitingForSecondTap();
+    } else {
+      unsigned long currentTime = millis();
+      unsigned long beatDuration = currentTime - lastBeatTime;
+      newBpm = 60000 / beatDuration;
+
+      if (newBpm < MIN_BPM) newBpm = MIN_BPM;
+      if (newBpm > MAX_BPM) newBpm = MAX_BPM;
+
+      beatInProgress = false;
+      bpmUpdated = true;
+      digitalWrite(RED_BEAT_INDICATOR_LED, LOW);  // Turn off the red LED after the second tap
+
+      // Enable the set button only after the second tap is processed
+      enableSetButton();  // Enable the set button now
+      displayCurrentBPM();
+    }
+  }
+}
+
+// Function to handle the + and - buttons
+void handleBpmButtons() {
+  static unsigned long lastDebounceTime = 0;
+  const unsigned long debounceDelay = 200;  // Adjust as needed for stable readings
+
+  unsigned long currentTime = millis();
+
+  if (currentTime - lastDebounceTime > debounceDelay) {
+    // Handle + button: Immediately update MIDI clock and enable set button
+    if (!mcp.digitalRead(BPM_PLUS_BUTTON)) {
+      newBpm = min((int)newBpm + 1, MAX_BPM);  // Increment BPM
+      bpmUpdated = true;
+      bpm = newBpm;  // Update the current BPM for the MIDI clock
+      bpmSet = true;  // Ensure MIDI clock updates
+      enableSetButton();  // Enable the set button
+      displayCurrentBPM();  // Update OLED display
+      lastDebounceTime = currentTime;
+    }
+
+    // Handle - button: Immediately update MIDI clock and enable set button
+    if (!mcp.digitalRead(BPM_MINUS_BUTTON)) {
+      newBpm = max((int)newBpm - 1, MIN_BPM);  // Decrement BPM
+      bpmUpdated = true;
+      bpm = newBpm;  // Update the current BPM for the MIDI clock
+      bpmSet = true;  // Ensure MIDI clock updates
+      enableSetButton();  // Enable the set button
+      displayCurrentBPM();  // Update OLED display
+      lastDebounceTime = currentTime;
+    }
+    
+    // Handle Set button: Store BPM to EEPROM, update MIDI clock, and disable set button
+    if (setButtonEnabled && !mcp.digitalRead(BPM_SET_BUTTON)) {  
+      writeBpmToEEPROM(bpm);  // Write the BPM to EEPROM
+      bpmSet = true;  // Ensure MIDI clock updates with the saved BPM
+      setButtonEnabled = false;  // Disable the set button after writing
+      mcp.digitalWrite(SET_LED, LOW);  // Turn off blue LED for set button
+      lastDebounceTime = currentTime;
+    }
+  }
+}
+
+// Send MIDI Clock if BPM has been set
+void sendMidiClock() {
+  if (bpmSet) {
+    unsigned long interval = 60000 / bpm / 24;
+    static unsigned long lastMidiTime = 0;
+    unsigned long currentTime = millis();
+
+    if (currentTime - lastMidiTime >= interval) {
+      MIDI.sendRealTime(midi::Clock);
+      lastMidiTime = currentTime;
+    }
+  }
+}
+
+// Flash LED for each beat
+void flashLed() {
+  if (!beatInProgress) {
+    unsigned long beatInterval = 60000 / bpm;
+    unsigned long ledOnDuration = beatInterval / 10;
+    unsigned long currentTime = millis();
+
+    if (currentTime - lastBeatTime >= beatInterval) {
+      digitalWrite(RED_BEAT_INDICATOR_LED, HIGH);
+      lastBeatTime = currentTime;
+    }
+
+    if (currentTime - lastBeatTime >= ledOnDuration) {
+      digitalWrite(RED_BEAT_INDICATOR_LED, LOW);
+    }
+  }
+}
+
+// Display current BPM on OLED
+void displayCurrentBPM() {
+  display.clearDisplay();
+  display.setFont(&FreeSansBold24pt7b);  // Set larger font
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(0, 40);  // Adjust Y position for larger font
+  display.print(newBpm);
+  display.display();
+}
+
+// Display '---' while waiting for second tap
+void displayWaitingForSecondTap() {
+  display.clearDisplay();
+  display.setFont(&FreeSansBold24pt7b);  // Set larger font
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(0, 40);  // Adjust Y position for larger font
+  display.print("- - -");
+  display.display();
+}
+
 void IRAM_ATTR handleTapButtonPress() {
   unsigned long currentInterruptTime = millis();
   if (currentInterruptTime - lastInterruptTime > DEBOUNCE_DELAY) {
@@ -119,117 +247,6 @@ void setup() {
 void loop() {
   sendMidiClock();
   flashLed();
-  adjustBPM();
+  adjustBPMWithTapButton();
   handleBpmButtons();
-}
-
-// Send MIDI Clock if BPM has been set
-void sendMidiClock() {
-  if (bpmSet) {
-    unsigned long interval = 60000 / bpm / 24;
-    static unsigned long lastMidiTime = 0;
-    unsigned long currentTime = millis();
-
-    if (currentTime - lastMidiTime >= interval) {
-      MIDI.sendRealTime(midi::Clock);
-      lastMidiTime = currentTime;
-    }
-  }
-}
-
-// Flash LED for each beat
-void flashLed() {
-  if (!beatInProgress) {
-    unsigned long beatInterval = 60000 / bpm;
-    unsigned long ledOnDuration = beatInterval / 10;
-    unsigned long currentTime = millis();
-
-    if (currentTime - lastBeatTime >= beatInterval) {
-      digitalWrite(RED_BEAT_INDICATOR_LED, HIGH);
-      lastBeatTime = currentTime;
-    }
-
-    if (currentTime - lastBeatTime >= ledOnDuration) {
-      digitalWrite(RED_BEAT_INDICATOR_LED, LOW);
-    }
-  }
-}
-
-// Adjust BPM based on tap button presses
-void adjustBPM() {
-  if (tap_buttonPressed) {
-    tap_buttonPressed = false;
-
-    if (!beatInProgress) {
-      lastBeatTime = millis();
-      beatInProgress = true;
-      digitalWrite(RED_BEAT_INDICATOR_LED, HIGH);  // Red LED stays on after first tap
-      displayWaitingForSecondTap();
-    } else {
-      unsigned long currentTime = millis();
-      unsigned long beatDuration = currentTime - lastBeatTime;
-      newBpm = 60000 / beatDuration;
-
-      if (newBpm < MIN_BPM) newBpm = MIN_BPM;
-      if (newBpm > MAX_BPM) newBpm = MAX_BPM;
-
-      beatInProgress = false;
-      bpmUpdated = true;
-      setButtonEnabled = true;  // Enable the set button after second tap
-      mcp.digitalWrite(SET_LED, HIGH);  // Blue LED is lit when set button is enabled
-      digitalWrite(RED_BEAT_INDICATOR_LED, LOW); // Turn off the red LED after the second tap
-      displayCurrentBPM();
-    }
-  }
-}
-
-void handleBpmButtons() {
-  static unsigned long lastDebounceTime = 0;
-  const unsigned long debounceDelay = 200; // Adjust as needed for stable readings
-
-  unsigned long currentTime = millis();
-
-  if (currentTime - lastDebounceTime > debounceDelay) {
-    if (!mcp.digitalRead(BPM_PLUS_BUTTON)) {
-      newBpm = min((int)newBpm + 1, MAX_BPM);  // Cast newBpm to int for min
-      bpmUpdated = true;
-      displayCurrentBPM();
-      lastDebounceTime = currentTime;
-    }
-    if (!mcp.digitalRead(BPM_MINUS_BUTTON)) {
-      newBpm = max((int)newBpm - 1, MIN_BPM);  // Cast newBpm to int for max
-      bpmUpdated = true;
-      displayCurrentBPM();
-      lastDebounceTime = currentTime;
-    }
-    if (setButtonEnabled && !mcp.digitalRead(BPM_SET_BUTTON) && bpmUpdated) {  // Only allow the set button after the second tap
-      bpm = newBpm; // Set new BPM
-      bpmSet = true;
-      bpmUpdated = false;
-      setButtonEnabled = false;  // Disable the set button after it's pressed
-      mcp.digitalWrite(SET_LED, LOW); // Turn off blue LED
-      writeBpmToEEPROM(bpm);  // Store the new BPM in EEPROM
-      lastDebounceTime = currentTime;
-    }
-  }
-}
-
-// Display current BPM on OLED
-void displayCurrentBPM() {
-  display.clearDisplay();
-  display.setFont(&FreeSansBold24pt7b);  // Set larger font
-  display.setTextColor(SSD1306_WHITE);
-  display.setCursor(0, 40);  // Adjust Y position for larger font
-  display.print(newBpm);
-  display.display();
-}
-
-// Display '---' while waiting for second tap
-void displayWaitingForSecondTap() {
-  display.clearDisplay();
-  display.setFont(&FreeSansBold24pt7b);  // Set larger font
-  display.setTextColor(SSD1306_WHITE);
-  display.setCursor(0, 40);  // Adjust Y position for larger font
-  display.print("- - -");
-  display.display();
 }
