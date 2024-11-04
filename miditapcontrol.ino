@@ -49,9 +49,9 @@ uint16_t readBpmFromEEPROM() {
   Wire.write(0);  // MSB address byte
   Wire.write(0);  // LSB address byte
   Wire.endTransmission();
-  
+
   Wire.requestFrom(EEPROM_I2C_ADDRESS, 2);  // Read two bytes for the BPM value
-  
+
   if (Wire.available() == 2) {
     uint16_t storedBpm = Wire.read() << 8 | Wire.read();  // Combine the two bytes
     if (storedBpm >= MIN_BPM && storedBpm <= MAX_BPM) {
@@ -64,16 +64,16 @@ uint16_t readBpmFromEEPROM() {
 // Function to write BPM to EEPROM (two-byte addressing)
 void writeBpmToEEPROM(uint16_t bpmToStore) {
   Wire.beginTransmission(EEPROM_I2C_ADDRESS);
-  Wire.write(0);  // MSB address byte
-  Wire.write(0);  // LSB address byte
-  Wire.write(bpmToStore >> 8);  // Write the high byte
+  Wire.write(0);                  // MSB address byte
+  Wire.write(0);                  // LSB address byte
+  Wire.write(bpmToStore >> 8);    // Write the high byte
   Wire.write(bpmToStore & 0xFF);  // Write the low byte
   Wire.endTransmission();
 }
 
 // Function to enable the set button and turn on the blue LED
 void enableSetButton() {
-  setButtonEnabled = true;  // Enable the set button
+  setButtonEnabled = true;          // Enable the set button
   mcp.digitalWrite(SET_LED, HIGH);  // Turn on blue LED
 }
 
@@ -96,13 +96,21 @@ void adjustBPMWithTapButton() {
       if (newBpm > MAX_BPM) newBpm = MAX_BPM;
 
       beatInProgress = false;
-      bpmUpdated = true;
+      bpmUpdated = true;                          // Internal BPM is updated
       digitalWrite(RED_BEAT_INDICATOR_LED, LOW);  // Turn off the red LED after the second tap
-
-      // Enable the set button only after the second tap is processed
-      enableSetButton();  // Enable the set button now
+      enableSetButton();                          // Enable the set button (blue LED turns on)
       displayCurrentBPM();
     }
+  }
+}
+
+void handleSetButton() {
+  if (setButtonEnabled && !mcp.digitalRead(BPM_SET_BUTTON)) {
+    bpm = newBpm;                    // Confirm the new BPM for the MIDI clock
+    bpmSet = true;                   // Ensure the MIDI clock updates immediately with the new BPM
+    writeBpmToEEPROM(bpm);           // Save the new BPM to EEPROM
+    setButtonEnabled = false;        // Disable the set button after confirming and saving
+    mcp.digitalWrite(SET_LED, LOW);  // Turn off the blue LED for the set button
   }
 }
 
@@ -118,9 +126,9 @@ void handleBpmButtons() {
     if (!mcp.digitalRead(BPM_PLUS_BUTTON)) {
       newBpm = min((int)newBpm + 1, MAX_BPM);  // Increment BPM
       bpmUpdated = true;
-      bpm = newBpm;  // Update the current BPM for the MIDI clock
-      bpmSet = true;  // Ensure MIDI clock updates
-      enableSetButton();  // Enable the set button
+      bpm = newBpm;         // Update the current BPM for the MIDI clock
+      bpmSet = true;        // Ensure MIDI clock updates immediately
+      enableSetButton();    // Enable the set button
       displayCurrentBPM();  // Update OLED display
       lastDebounceTime = currentTime;
     }
@@ -129,19 +137,10 @@ void handleBpmButtons() {
     if (!mcp.digitalRead(BPM_MINUS_BUTTON)) {
       newBpm = max((int)newBpm - 1, MIN_BPM);  // Decrement BPM
       bpmUpdated = true;
-      bpm = newBpm;  // Update the current BPM for the MIDI clock
-      bpmSet = true;  // Ensure MIDI clock updates
-      enableSetButton();  // Enable the set button
+      bpm = newBpm;         // Update the current BPM for the MIDI clock
+      bpmSet = true;        // Ensure MIDI clock updates immediately
+      enableSetButton();    // Enable the set button
       displayCurrentBPM();  // Update OLED display
-      lastDebounceTime = currentTime;
-    }
-    
-    // Handle Set button: Store BPM to EEPROM, update MIDI clock, and disable set button
-    if (setButtonEnabled && !mcp.digitalRead(BPM_SET_BUTTON)) {  
-      writeBpmToEEPROM(bpm);  // Write the BPM to EEPROM
-      bpmSet = true;  // Ensure MIDI clock updates with the saved BPM
-      setButtonEnabled = false;  // Disable the set button after writing
-      mcp.digitalWrite(SET_LED, LOW);  // Turn off blue LED for set button
       lastDebounceTime = currentTime;
     }
   }
@@ -160,6 +159,8 @@ void sendMidiClock() {
     }
   }
 }
+
+
 
 // Flash LED for each beat
 void flashLed() {
@@ -214,11 +215,13 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(TAP_BUTTON_PIN), handleTapButtonPress, FALLING);
 
   if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
-    while (true); // Halt if display fails
+    while (true)
+      ;  // Halt if display fails
   }
 
-  if (!mcp.begin_I2C()) {   // Initialize MCP23017 over I2C
-    while (true); // Halt if MCP23017 fails to initialize
+  if (!mcp.begin_I2C()) {  // Initialize MCP23017 over I2C
+    while (true)
+      ;  // Halt if MCP23017 fails to initialize
   }
 
   // Set the button pins as inputs with pull-ups
@@ -226,9 +229,9 @@ void setup() {
   mcp.pinMode(BPM_PLUS_BUTTON, INPUT);
   mcp.pinMode(BPM_MINUS_BUTTON, INPUT);
 
-  mcp.digitalWrite(BPM_SET_BUTTON, HIGH);  // Enable pull-up
-  mcp.digitalWrite(BPM_PLUS_BUTTON, HIGH); // Enable pull-up
-  mcp.digitalWrite(BPM_MINUS_BUTTON, HIGH); // Enable pull-up
+  mcp.digitalWrite(BPM_SET_BUTTON, HIGH);    // Enable pull-up
+  mcp.digitalWrite(BPM_PLUS_BUTTON, HIGH);   // Enable pull-up
+  mcp.digitalWrite(BPM_MINUS_BUTTON, HIGH);  // Enable pull-up
 
   // Set LED as output
   mcp.pinMode(SET_LED, OUTPUT);
@@ -239,14 +242,20 @@ void setup() {
   bpm = readBpmFromEEPROM();
   newBpm = bpm;  // Set newBpm to the stored value
 
+  // Set bpmSet to true and ensure the MIDI clock is updated
+  bpmSet = true;
+  sendMidiClock();  // Immediately update MIDI clock with the BPM from EEPROM
+
   Serial.begin(31250);
   MIDI.begin(MIDI_CHANNEL_OMNI);
   displayCurrentBPM();
 }
 
+
 void loop() {
-  sendMidiClock();
-  flashLed();
-  adjustBPMWithTapButton();
-  handleBpmButtons();
+  sendMidiClock();           // Continually send MIDI clock based on BPM
+  flashLed();                // Flash LED based on the current BPM
+  adjustBPMWithTapButton();  // Handle tap button
+  handleBpmButtons();        // Handle + and - buttons
+  handleSetButton();         // Handle Set button to confirm the BPM
 }
