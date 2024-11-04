@@ -5,6 +5,9 @@
 #include <Adafruit_MCP23X17.h>
 #include <Fonts/FreeSansBold24pt7b.h>  // Include the larger font
 
+// EEPROM Settings
+#define EEPROM_I2C_ADDRESS 0x50  // Standard I2C address for 27C256 EEPROM
+
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
 #define OLED_RESET -1
@@ -29,8 +32,8 @@ Adafruit_MCP23X17 mcp;  // I2C expander
 // Variables
 volatile bool tap_buttonPressed = false;
 volatile unsigned long lastInterruptTime = 0;
-unsigned long bpm = DEFAULT_TEMPO;
-unsigned long newBpm = DEFAULT_TEMPO;
+uint16_t bpm = DEFAULT_TEMPO;  // Correcting BPM to uint16_t
+uint16_t newBpm = DEFAULT_TEMPO;
 bool beatInProgress = false;
 unsigned long lastBeatTime = 0;
 bool bpmSet = false;
@@ -39,6 +42,34 @@ bool setButtonEnabled = false;  // To control when the set button is active
 
 // MIDI Setup
 MIDI_CREATE_INSTANCE(HardwareSerial, Serial, MIDI);
+
+// Function to read BPM from EEPROM (two-byte addressing)
+uint16_t readBpmFromEEPROM() {
+  Wire.beginTransmission(EEPROM_I2C_ADDRESS);
+  Wire.write(0);  // MSB address byte
+  Wire.write(0);  // LSB address byte
+  Wire.endTransmission();
+  
+  Wire.requestFrom(EEPROM_I2C_ADDRESS, 2);  // Read two bytes for the BPM value
+  
+  if (Wire.available() == 2) {
+    uint16_t storedBpm = Wire.read() << 8 | Wire.read();  // Combine the two bytes
+    if (storedBpm >= MIN_BPM && storedBpm <= MAX_BPM) {
+      return storedBpm;
+    }
+  }
+  return DEFAULT_TEMPO;  // If the value is invalid or out of range, return default BPM
+}
+
+// Function to write BPM to EEPROM (two-byte addressing)
+void writeBpmToEEPROM(uint16_t bpmToStore) {
+  Wire.beginTransmission(EEPROM_I2C_ADDRESS);
+  Wire.write(0);  // MSB address byte
+  Wire.write(0);  // LSB address byte
+  Wire.write(bpmToStore >> 8);  // Write the high byte
+  Wire.write(bpmToStore & 0xFF);  // Write the low byte
+  Wire.endTransmission();
+}
 
 void IRAM_ATTR handleTapButtonPress() {
   unsigned long currentInterruptTime = millis();
@@ -74,6 +105,11 @@ void setup() {
   // Set LED as output
   mcp.pinMode(SET_LED, OUTPUT);
   mcp.digitalWrite(SET_LED, LOW);
+
+  // Read the stored BPM value from EEPROM on startup
+  Wire.begin();  // Initialize I2C
+  bpm = readBpmFromEEPROM();
+  newBpm = bpm;  // Set newBpm to the stored value
 
   Serial.begin(31250);
   MIDI.begin(MIDI_CHANNEL_OMNI);
@@ -155,13 +191,13 @@ void handleBpmButtons() {
 
   if (currentTime - lastDebounceTime > debounceDelay) {
     if (!mcp.digitalRead(BPM_PLUS_BUTTON)) {
-      newBpm = min(newBpm + 1, (unsigned long)MAX_BPM);
+      newBpm = min((int)newBpm + 1, MAX_BPM);  // Cast newBpm to int for min
       bpmUpdated = true;
       displayCurrentBPM();
       lastDebounceTime = currentTime;
     }
     if (!mcp.digitalRead(BPM_MINUS_BUTTON)) {
-      newBpm = max(newBpm - 1, (unsigned long)MIN_BPM);
+      newBpm = max((int)newBpm - 1, MIN_BPM);  // Cast newBpm to int for max
       bpmUpdated = true;
       displayCurrentBPM();
       lastDebounceTime = currentTime;
@@ -172,6 +208,7 @@ void handleBpmButtons() {
       bpmUpdated = false;
       setButtonEnabled = false;  // Disable the set button after it's pressed
       mcp.digitalWrite(SET_LED, LOW); // Turn off blue LED
+      writeBpmToEEPROM(bpm);  // Store the new BPM in EEPROM
       lastDebounceTime = currentTime;
     }
   }
