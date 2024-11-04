@@ -25,5 +25,4 @@ De LED knippert volgens het ingestelde BPM, en blijft na de eerste tik van de ta
 De MIDI Tempo Controller stuurt automatisch MIDI-kloksignalen naar je aangesloten MIDI-apparaten, zodat ze synchroon lopen met het ingestelde BPM.
 6. Opslag en Geheugen (EEPROM)   
 Het laatst ingestelde BPM wordt opgeslagen in het EEPROM-geheugen van de controller. Dit BPM wordt automatisch geladen bij het opstarten van het apparaat, zodat je niet elke keer het tempo opnieuw hoeft in te stellen.
-7. Reset    
-Schakel het apparaat uit en weer in om het opnieuw op te starten. Het opgeslagen BPM wordt dan geladen uit het geheugen.
+
