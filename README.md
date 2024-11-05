@@ -1,11 +1,13 @@
 # Korte versie gebruik van het midi clock controller pedal board:   
 - De midi clock controller start op met de laatst opgeslagen waarde.   
-- TAP wordt gebruikt om de nieuwe BPM waarde in te stellen.   
-- SET maakt de nieuw ingestelde BPM waarde actief op MIDI Out en slaat de waarde op.   
-- +BPM/-BPM past direct de MIDI Out BPM waarde aan, SET slaat de waarde op.
-- START/STOP start of stopt het afspelen van aangesloten apparaten.   
-- CONTINUE laat aangesloten apparaten afspelen hervatten indien ze gestopt staan.   
+- De controller synchroniseert alle aangesloten apparaten continue met een MIDI Out klok signaal.
+- **TAP** wordt gebruikt om de nieuwe BPM waarde in te stellen.   
+- **SET** maakt de nieuw ingestelde BPM waarde actief op MIDI Out en slaat de waarde op.   
+- **+BPM**/**-BPM** past direct de MIDI Out BPM waarde aan, SET slaat de waarde op.
+- **START/STOP** start of stopt het afspelen van aangesloten apparaten.   
+- **CONTINUE** laat aangesloten apparaten afspelen hervatten indien ze gestopt staan.   
 
+  
 # Uitgebreide versie gebruik van het midi clock controller pedal board:   
 
 ## About  
@@ -59,6 +61,6 @@ Is de led uit dan is de functie van de knop een Midi STOP commando.
 De **CONTINUE** knop stuurt een MIDI CONTINUE-commando naar de aangesloten apparatuur om het afspelen te hervatten vanaf het punt waar het was gestopt. Dit commando is alleen beschikbaar nadat een STOP-commando is verzonden.
 De led boven de knop licht op wanneer CONTINUE commando beschikbaar is.    
 
-NB: De controller stuurt **altijd** een MIDI Out klok signaal uit om de klokken van alle aangesloten apparaten te synchroniseren. Het gebruik van deze knoppen heeft daar geen invloed op.   
+NB: De controller stuurt **altijd** een MIDI Out klok signaal uit om de klokken van alle aangesloten apparaten te synchroniseren, ook bij gebruik van Stop, Start of Continue.   
 
 
