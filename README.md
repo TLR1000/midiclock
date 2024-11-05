@@ -29,7 +29,7 @@ Bij het inschakelen van de MIDI Tempo Controller wordt het laatst ingestelde BPM
 ## Instellen van het Tempo  
  
 ### Gebruik de knop TAP:  
-1. TAP
+1. TAP   
 Druk één keer op TAP om het begin van een beat te markeren. Het scherm toont - - - en de rode led brandt continue om aan te geven dat het apparaat wacht op de tweede tap.   
 Druk nogmaals op de tapknop om het begin van de volgende beat te markeren.   
 Het apparaat berekent dan het BPM en toont het resultaat op het tft-scherm. Zolang SET nog niet is ingedrukt, kan het tempo onbeperkt gewijzigd worden voordat het actief wordt.  
