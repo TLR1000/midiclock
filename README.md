@@ -1,4 +1,5 @@
 # Korte versie gebruik van het midi clock controller pedal board:   
+- Gebruik een telefoonlader om de controller van stroom te voorzien.  
 - De midi clock controller start op met de laatst opgeslagen waarde.   
 - De controller synchroniseert alle aangesloten apparaten continue met een MIDI Out klok signaal.
 - **TAP** wordt gebruikt om de nieuwe BPM waarde in te stellen.   
@@ -63,4 +64,10 @@ De led boven de knop licht op wanneer CONTINUE commando beschikbaar is.
 
 NB: De controller stuurt **altijd** een MIDI Out klok signaal uit om de klokken van alle aangesloten apparaten te synchroniseren, ook bij gebruik van Stop, Start of Continue.   
 
+## Aansluitingen
 
+### MIDI OUT  
+Gebruik een standaard 5-polige MIDI kabel om de Midi uitgang van de controller aan te sluiten op een Midi In of Midi Thru van de te synchroniseren apparaten.
+
+### USB-C
+De USB-C ingang wordt gebruikt om de controller van stroom te voorzien. Na aansluiten start de controller direct op. Een voedingsbron van 100mA is voldoende, bijv. een telefoonlader.
